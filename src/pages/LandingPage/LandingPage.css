@@ -1,0 +1,10 @@
+/* =============================================
+   LANDING PAGE — layout shell
+   ============================================= */
+
+.landing-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+}

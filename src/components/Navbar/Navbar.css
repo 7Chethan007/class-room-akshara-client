@@ -1,0 +1,154 @@
+/* =============================================
+   NAVBAR
+   ============================================= */
+
+.navbar {
+  background: var(--bg-white);
+  border-bottom: 1.5px solid var(--border-warm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+  padding: var(--nav-padding-y) var(--nav-padding-x);
+}
+
+/* ---------- Logo ---------- */
+.logo {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  user-select: none;
+}
+
+.logo-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ---------- Center links ---------- */
+.nav-links {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+}
+
+.nav-links a {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-mid);
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-bottom-color 0.2s;
+}
+
+.nav-links a:hover {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ---------- Right actions ---------- */
+.nav-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-pill);
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-outline:hover {
+  background: var(--primary);
+  color: var(--bg-white);
+}
+
+.btn-fill {
+  background: var(--primary);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.2s;
+}
+
+.btn-fill:hover {
+  background: var(--primary-dark);
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 768px) {
+  .navbar-inner {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .nav-links {
+    display: none;
+  }
+}
+
+/* ---------- Large screens ---------- */
+@media (min-width: 1200px) {
+  .logo {
+    font-size: 22px;
+  }
+
+  .logo-dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .nav-links a {
+    font-size: 15px;
+  }
+
+  .nav-links {
+    gap: 36px;
+  }
+
+  .btn-outline,
+  .btn-fill {
+    font-size: 14px;
+    padding: 8px 22px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .logo {
+    font-size: 24px;
+  }
+
+  .nav-links a {
+    font-size: 16px;
+  }
+
+  .btn-outline,
+  .btn-fill {
+    font-size: 15px;
+    padding: 9px 24px;
+  }
+}
