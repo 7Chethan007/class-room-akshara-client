@@ -1,0 +1,107 @@
+/* =============================================
+   DESIGN SYSTEM — ClassRoom Live
+   ============================================= */
+
+/* ---------- Design Tokens ---------- */
+:root {
+  --primary:        #C07050;
+  --primary-light:  #F0D5C0;
+  --primary-dark:   #A05030;
+  --bg-page:        #F5EFE6;
+  --bg-white:       #FFFFFF;
+  --border-warm:    #E8D9C8;
+  --border-card:    #E2CBBA;
+  --text-dark:      #5A3A28;
+  --text-mid:       #7A5C4A;
+  --text-muted:     #8A6A58;
+  --text-faint:     #A07868;
+  --red-live:       #E84040;
+  --shadow-card:    rgba(150, 90, 60, 0.08);
+
+  /* Typography */
+  --font-display:   'Fredoka One', cursive;
+  --font-body:      'Nunito', sans-serif;
+
+  /* Spacing */
+  --nav-padding-y:  13px;
+  --nav-padding-x:  32px;
+  --hero-padding-y: 52px;
+  --hero-padding-x: 48px;
+  --radius-pill:    20px;
+  --radius-card:    20px;
+  --radius-cta:     14px;
+
+  /* Layout */
+  --max-width-content: 1200px;
+}
+
+/* ---------- CSS Reset ---------- */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ---------- Page container ---------- */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Centered content wrapper ---------- */
+.container {
+  width: 100%;
+  max-width: var(--max-width-content);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--nav-padding-x);
+  padding-right: var(--nav-padding-x);
+}
+
+/* ---------- Large-screen scale-ups ---------- */
+@media (min-width: 1440px) {
+  :root {
+    --nav-padding-x: 48px;
+    --hero-padding-x: 64px;
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    --max-width-content: 1400px;
+    --nav-padding-x: 56px;
+    --hero-padding-x: 72px;
+  }
+}

@@ -1,0 +1,18 @@
+/* =============================================
+   FOOTER
+   ============================================= */
+
+.footer {
+  background: var(--bg-white);
+  border-top: 1px solid var(--border-warm);
+  text-align: center;
+  padding: 14px;
+  font-size: 12px;
+  color: #B09080;
+}
+
+.footer .heart,
+.footer .name {
+  color: var(--primary);
+  font-weight: 700;
+}
