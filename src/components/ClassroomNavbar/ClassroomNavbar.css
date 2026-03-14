@@ -1,0 +1,103 @@
+/* =============================================
+   CLASSROOM NAVBAR
+   ============================================= */
+
+.classroom-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 11px 22px;
+  background: var(--bg-dark);
+  border-bottom: 1px solid var(--border-dark);
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.classroom-nav .logo {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--primary-logo);
+  white-space: nowrap;
+}
+
+.nav-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-tile);
+  flex-shrink: 0;
+}
+
+.nav-subject {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-warm);
+}
+
+.nav-live-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--red-live);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: blink 1.2s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+.live-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--red-live);
+}
+
+.nav-timer {
+  font-family: monospace;
+  font-size: 13px;
+  color: #B09080;
+  background: var(--bg-mid);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 768px) {
+  .classroom-nav {
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .nav-subject {
+    display: none;
+  }
+
+  .nav-divider {
+    display: none;
+  }
+}
+
+/* ---------- Large screens ---------- */
+@media (min-width: 1200px) {
+  .classroom-nav {
+    padding: 11px 32px;
+  }
+
+  .classroom-nav .logo {
+    font-size: 19px;
+  }
+
+  .nav-subject {
+    font-size: 15px;
+  }
+}

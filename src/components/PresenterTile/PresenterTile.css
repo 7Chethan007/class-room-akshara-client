@@ -1,0 +1,153 @@
+/* =============================================
+   PRESENTER TILE
+   ============================================= */
+
+.presenter-tile {
+  flex: 1;
+  background: linear-gradient(160deg, #3D2A1E 0%, #1A1008 100%);
+  border-radius: 16px;
+  border: 1.5px solid #5A3A28;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 260px;
+}
+
+.scanline-overlay {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 39px,
+    rgba(255, 255, 255, 0.02) 40px
+  );
+  pointer-events: none;
+}
+
+.presenter-label {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-amber);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.screen-badge {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: var(--primary);
+  color: #FFFFFF;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+}
+
+.presenter-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 26px;
+  color: #FFFFFF;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  z-index: 1;
+}
+
+.presenter-name {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: #F0E0D0;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 768px) {
+  .presenter-tile {
+    min-height: 200px;
+  }
+
+  .presenter-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+}
+
+/* ---------- Large screens ---------- */
+@media (min-width: 1200px) {
+  .presenter-tile {
+    min-height: 320px;
+  }
+
+  .presenter-avatar {
+    width: 84px;
+    height: 84px;
+    font-size: 30px;
+  }
+
+  .presenter-name {
+    font-size: 14px;
+  }
+
+  .presenter-label {
+    font-size: 12px;
+  }
+
+  .screen-badge {
+    font-size: 11px;
+    padding: 4px 12px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .presenter-tile {
+    min-height: 380px;
+    border-radius: 20px;
+  }
+
+  .presenter-avatar {
+    width: 96px;
+    height: 96px;
+    font-size: 34px;
+    border-width: 4px;
+  }
+
+  .presenter-name {
+    font-size: 15px;
+    bottom: 16px;
+    left: 18px;
+  }
+
+  .presenter-label {
+    font-size: 13px;
+    top: 16px;
+    left: 18px;
+  }
+
+  .screen-badge {
+    font-size: 12px;
+    top: 16px;
+    right: 18px;
+  }
+}
