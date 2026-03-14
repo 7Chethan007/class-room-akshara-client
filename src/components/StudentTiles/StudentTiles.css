@@ -1,0 +1,117 @@
+/* =============================================
+   STUDENT TILES ROW
+   ============================================= */
+
+.student-tiles {
+  display: flex;
+  gap: 8px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.s-tile {
+  flex: 1;
+  border-radius: 10px;
+  border: 1px solid var(--border-tile);
+  background: var(--bg-tile);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.s-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.s-name {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-faint-dk);
+}
+
+.s-tile.s-more {
+  background: #3A2818;
+  border: 1px dashed var(--border-btn);
+  color: #8A7060;
+  font-family: var(--font-display);
+  font-size: 11px;
+  flex-direction: row;
+  gap: 0;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 768px) {
+  .student-tiles {
+    height: 64px;
+    gap: 5px;
+  }
+
+  .s-tile:nth-child(n+5) {
+    display: none;
+  }
+
+  .s-tile.s-more {
+    display: flex;
+  }
+
+  .s-av {
+    width: 22px;
+    height: 22px;
+    font-size: 8px;
+  }
+
+  .s-name {
+    font-size: 8px;
+  }
+}
+
+/* ---------- Large screens ---------- */
+@media (min-width: 1200px) {
+  .student-tiles {
+    height: 90px;
+    gap: 10px;
+  }
+
+  .s-av {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+
+  .s-name {
+    font-size: 10px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .student-tiles {
+    height: 100px;
+    gap: 12px;
+  }
+
+  .s-tile {
+    border-radius: 12px;
+  }
+
+  .s-av {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .s-name {
+    font-size: 11px;
+  }
+}

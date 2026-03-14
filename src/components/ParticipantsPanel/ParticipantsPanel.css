@@ -1,0 +1,211 @@
+/* =============================================
+   PARTICIPANTS PANEL
+   ============================================= */
+
+.participants {
+  flex: 0 0 30%;
+  background: var(--bg-dark);
+  border-left: 1px solid var(--border-dark);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border-dark);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text-amber);
+}
+
+.panel-count {
+  background: var(--primary);
+  color: #FFFFFF;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* List */
+.panel-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-dark) transparent;
+}
+
+.panel-section {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-section);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 2px 6px;
+}
+
+.panel-section-students {
+  margin-top: 6px;
+}
+
+/* Participant row */
+.p-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg-mid);
+  border: 0.5px solid var(--border-card);
+}
+
+.p-item.instructor-row {
+  border-color: var(--primary);
+  background: var(--bg-card);
+}
+
+.p-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.p-name {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: #D0C0B0;
+}
+
+.p-item.overflow {
+  opacity: 0.45;
+}
+
+.p-item.overflow .p-name {
+  font-size: 11px;
+}
+
+/* Chat */
+.chat-area {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-dark);
+  flex-shrink: 0;
+}
+
+.chat-input {
+  flex: 1;
+  background: var(--bg-mid);
+  border: 1px solid var(--border-tile);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted-dk);
+  outline: none;
+}
+
+.chat-input::placeholder {
+  color: var(--text-section);
+}
+
+.chat-input:focus {
+  border-color: var(--primary);
+}
+
+.chat-send {
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chat-send:hover {
+  background: var(--primary-dark, #A05030);
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 768px) {
+  .participants {
+    flex: unset;
+    border-left: none;
+    border-top: 1px solid var(--border-dark);
+    max-height: 280px;
+  }
+}
+
+/* ---------- Large screens ---------- */
+@media (min-width: 1200px) {
+  .panel-title {
+    font-size: 15px;
+  }
+
+  .p-name {
+    font-size: 13px;
+  }
+
+  .p-av {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .panel-header {
+    padding: 16px 20px 12px;
+  }
+
+  .panel-list {
+    padding: 12px 16px;
+    gap: 6px;
+  }
+
+  .p-item {
+    padding: 10px 12px;
+  }
+
+  .p-name {
+    font-size: 14px;
+  }
+
+  .chat-input {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .chat-send {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+}

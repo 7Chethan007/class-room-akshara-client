@@ -105,3 +105,45 @@ img {
     --hero-padding-x: 72px;
   }
 }
+
+/* =============================================
+   DARK THEME — Classroom Page
+   ============================================= */
+.theme-dark {
+  --bg-darkest:     #1A110C;
+  --bg-dark:        #1E1510;
+  --bg-mid:         #2A1F18;
+  --bg-tile:        #2E1E14;
+  --bg-card:        #2F2018;
+  --bg-btn:         #3A2A20;
+
+  --border-dark:    #3A2A20;
+  --border-tile:    #4A3020;
+  --border-btn:     #5A4030;
+  --border-card:    #3E2E22;
+
+  --primary-logo:   #D09070;
+  --primary-tint:   rgba(192, 112, 80, 0.18);
+
+  --text-white:     #F0E8DE;
+  --text-warm:      #E8D8C8;
+  --text-amber:     #E8C8A0;
+  --text-muted-dk:  #D0B8A0;
+  --text-faint-dk:  #A08878;
+  --text-section:   #6A5040;
+
+  --red-danger:     #C03030;
+  --red-danger-border: #A02020;
+
+  --av-blue:        #5B7FD4;
+  --av-green:       #6BAA7A;
+  --av-coral:       #D47A5B;
+  --av-purple:      #A06BB8;
+  --av-amber:       #D4A55B;
+  --av-blue-light:  #7BAAD4;
+  --av-red-muted:   #AA6B6B;
+  --av-green-muted: #7A9E7A;
+  --av-mauve:       #B07AAA;
+  --av-grey:        #607060;
+}
+
