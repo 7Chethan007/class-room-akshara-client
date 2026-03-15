@@ -8,3 +8,86 @@
   flex-direction: column;
   background: var(--bg-page);
 }
+
+.action-panel {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  background: rgba(26, 15, 8, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 300;
+}
+
+.action-card {
+  width: min(520px, 100%);
+  background: #fff;
+  border: 1px solid #e2cbba;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(120, 70, 40, 0.15);
+  padding: 18px;
+}
+
+.action-card h2 {
+  margin: 0 0 12px;
+  color: #5a3a28;
+  font-size: 22px;
+}
+
+.action-card label {
+  display: block;
+  font-size: 13px;
+  color: #7a5a48;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.action-card input {
+  width: 100%;
+  border: 1px solid #d6bca8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.action-cancel,
+.action-submit {
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.action-cancel {
+  border: 1px solid #c07050;
+  color: #c07050;
+  background: transparent;
+}
+
+.action-submit {
+  border: none;
+  background: #c07050;
+  color: #fff;
+}
+
+.action-submit:disabled,
+.action-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-error {
+  color: #ad2b2b;
+  font-size: 13px;
+  margin: 2px 0 12px;
+}

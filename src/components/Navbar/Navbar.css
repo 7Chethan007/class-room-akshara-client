@@ -46,7 +46,10 @@
   align-items: center;
 }
 
-.nav-links a {
+.nav-link-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-mid);
@@ -55,7 +58,7 @@
   transition: color 0.2s, border-bottom-color 0.2s;
 }
 
-.nav-links a:hover {
+.nav-link-btn:hover {
   color: var(--primary);
   border-bottom-color: var(--primary);
 }
@@ -122,7 +125,7 @@
     height: 10px;
   }
 
-  .nav-links a {
+  .nav-link-btn {
     font-size: 15px;
   }
 
@@ -142,7 +145,7 @@
     font-size: 24px;
   }
 
-  .nav-links a {
+  .nav-link-btn {
     font-size: 16px;
   }
 

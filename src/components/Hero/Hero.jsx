@@ -22,7 +22,7 @@ const FEATURES = [
  *  Left:  badge → headline → subtitle → features
  *  Right: live class preview card → CTA buttons
  */
-function Hero() {
+function Hero({ onSchedule, onJoin }) {
   return (
     <section className="hero" id="home">
       <div className="hero-inner">
@@ -91,10 +91,20 @@ function Hero() {
 
           {/* CTA buttons */}
           <div className="cta-buttons">
-            <button className="cta-btn-fill" id="btn-schedule-cta" type="button">
+            <button
+              className="cta-btn-fill"
+              id="btn-schedule-cta"
+              type="button"
+              onClick={onSchedule}
+            >
               📅 Schedule Now
             </button>
-            <button className="cta-btn-outline" id="btn-join-cta" type="button">
+            <button
+              className="cta-btn-outline"
+              id="btn-join-cta"
+              type="button"
+              onClick={onJoin}
+            >
               🚀 Join Now
             </button>
           </div>
