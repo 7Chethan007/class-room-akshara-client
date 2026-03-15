@@ -4,10 +4,9 @@ import './ClassroomNavbar.css';
 /**
  * ClassroomNavbar — dark-themed top bar for the live classroom
  *
- * Displays: Logo | Divider | Subject name | LIVE dot + label + timer
- * Timer ticks via useEffect/setInterval (React state, not DOM).
+ * Displays: Logo | Divider | Subject name | User + LIVE dot + label + timer
  */
-function ClassroomNavbar() {
+function ClassroomNavbar({ sessionId, userName }) {
   const [seconds, setSeconds] = useState(0);
   const intervalRef = useRef(null);
 
@@ -26,12 +25,19 @@ function ClassroomNavbar() {
     <nav className="classroom-nav" id="classroom-navbar">
       <div className="logo">ClassRoom Live</div>
       <div className="nav-divider" aria-hidden="true"></div>
-      <div className="nav-subject">Mathematics — Chapter 5</div>
+      <div className="nav-subject">
+        {localStorage.getItem('subject') || 'Live Class'}
+      </div>
 
       <div className="nav-live-row">
+        <span style={{ marginLeft: 'auto', marginRight: '16px', fontSize: '12px' }}>
+          👤 {userName || 'User'}
+        </span>
         <span className="live-dot" aria-hidden="true"></span>
         <span className="live-label">LIVE</span>
-        <span className="nav-timer" aria-live="polite">{h}:{m}:{s}</span>
+        <span className="nav-timer" aria-live="polite">
+          {h}:{m}:{s}
+        </span>
       </div>
     </nav>
   );
