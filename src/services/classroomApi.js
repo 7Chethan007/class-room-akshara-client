@@ -25,11 +25,11 @@ export async function quickAccessUser({ name, email, role }) {
   return result.data;
 }
 
-export async function createClassSession({ token, subject }) {
+export async function createClassSession({ token, subject, className }) {
   const result = await requestJson('/session/create', {
     method: 'POST',
     token,
-    body: { subject },
+    body: { subject, className },
   });
   return result.data;
 }

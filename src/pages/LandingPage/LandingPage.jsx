@@ -18,15 +18,17 @@ function LandingPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('Mathematics - Chapter 1');
+  const [className, setClassName] = useState('Class 1');
   const [classCode, setClassCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const persistAuth = ({ token, user, sessionId, subject }) => {
+  const persistAuth = ({ token, user, sessionId, subject, className }) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('sessionId', sessionId);
     localStorage.setItem('subject', subject || 'Live Class');
+    localStorage.setItem('className', className || 'Class');
   };
 
   const openLiveClass = () => {
@@ -38,6 +40,7 @@ function LandingPage() {
     setName('');
     setEmail('');
     setSubject('Mathematics - Chapter 1');
+    setClassName('Class 1');
     setClassCode('');
     setBusy(false);
     setError('');
@@ -68,6 +71,10 @@ function LandingPage() {
         throw new Error('Class subject is required');
       }
 
+      if (mode === 'schedule' && !className.trim()) {
+        throw new Error('Class name is required (e.g., Class 1, Class 2)');
+      }
+
       if (mode === 'join' && !classCode.trim()) {
         throw new Error('Class code is required');
       }
@@ -83,13 +90,14 @@ function LandingPage() {
           throw new Error('This profile is not a teacher profile.');
         }
 
-        const session = await createClassSession({ token: auth.token, subject: subject.trim() });
+        const session = await createClassSession({ token: auth.token, subject: subject.trim(), className: className.trim() });
 
         persistAuth({
           token: auth.token,
           user: auth.user,
           sessionId: session.sessionId,
           subject: subject.trim(),
+          className: className.trim(),
         });
 
         window.alert(`Class created. Share this class code: ${session.sessionId}`);
@@ -111,6 +119,7 @@ function LandingPage() {
         user: auth.user,
         sessionId: session.sessionId,
         subject: session.subject,
+        className: session.className,
       });
 
       openLiveClass();
@@ -159,6 +168,14 @@ function LandingPage() {
                   value={subject}
                   onChange={(event) => setSubject(event.target.value)}
                   placeholder="Mathematics - Chapter 1"
+                />
+
+                <label htmlFor="entry-classname">Class Name</label>
+                <input
+                  id="entry-classname"
+                  value={className}
+                  onChange={(event) => setClassName(event.target.value)}
+                  placeholder="e.g., Class 1, Class 2, 10-A, etc."
                 />
               </>
             )}

@@ -11,10 +11,12 @@ function ControlsBar({
   cameraOn = false,
   shareOn = false,
   recordOn = false,
+  transcriptOn = false,
   onToggleMic = () => {},
   onToggleCamera = () => {},
   onToggleShare = () => {},
   onToggleRecord = () => {},
+  onToggleTranscript = () => {},
   onEndClass = () => {},
   userRole = 'student',
 }) {
@@ -56,6 +58,16 @@ function ControlsBar({
             onClick={onToggleRecord}
           >
             ⏺ {recordOn ? 'Recording...' : 'Record'}
+          </button>
+
+          <button
+            className={`ctrl-btn${transcriptOn ? ' active' : ''}`}
+            id="btn-transcript"
+            type="button"
+            onClick={onToggleTranscript}
+            title="Toggle transcript visibility (always recording)"
+          >
+            📝 {transcriptOn ? 'Transcript' : 'Transcript Off'}
           </button>
 
           <button

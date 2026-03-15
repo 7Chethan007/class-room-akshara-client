@@ -3,7 +3,9 @@ import ClassroomNavbar from '../../components/ClassroomNavbar/ClassroomNavbar';
 import PresenterTile from '../../components/PresenterTile/PresenterTile';
 import StudentTiles from '../../components/StudentTiles/StudentTiles';
 import ParticipantsPanel from '../../components/ParticipantsPanel/ParticipantsPanel';
+import TranscriptionPanel from '../../components/TranscriptionPanel/TranscriptionPanel';
 import ControlsBar from '../../components/ControlsBar/ControlsBar';
+import { useTranscription } from '../../hooks/useTranscription';
 import {
   initSocket,
   disconnectSocket,
@@ -13,6 +15,45 @@ import {
   produce,
 } from '../../services/mediaService';
 import './ClassroomPage.css';
+
+/**
+ * Helper function to encode raw audio samples to WAV format
+ */
+function encodeWAV(samples, sampleRate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+
+  // WAV header
+  const writeString = (offset, string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // fmt chunk size
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true); // block align
+  view.setUint16(34, 16, true); // bits per sample
+  writeString(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+
+  // Audio data (quantize to 16-bit PCM)
+  let index = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    index += 2;
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
 
 /**
  * ClassroomPage — full-viewport dark-themed live class view with WORKING video
@@ -35,6 +76,7 @@ function ClassroomPage() {
   const [cameraOn, setCameraOn] = useState(true);
   const [shareOn, setShareOn] = useState(false);
   const [recordOn, setRecordOn] = useState(false);
+  const [transcriptVisible, setTranscriptVisible] = useState(false);
 
   const socketRef = useRef(null);
   const deviceRef = useRef(null);
@@ -43,6 +85,16 @@ function ClassroomPage() {
   const producersRef = useRef({});
   const consumersRef = useRef(new Map());
   const remoteStreamsMapRef = useRef(new Map()); // producerId -> { stream, userId, kind }
+  const audioRecorderRef = useRef(null); // MediaRecorder for capturing teacher's audio
+  
+  // Web Audio refs for transcription capture
+  const audioContextRef = useRef(null);
+  const mediaSourceRef = useRef(null);
+  const processorRef = useRef(null);
+  const processingAudioRef = useRef(false);
+
+  // Transcription hook
+  const transcription = useTranscription(socketRef, sessionId ? String(sessionId) : null, user?._id || user?.id);
 
   /**
    * STEP 1: Initialize auth from localStorage
@@ -80,6 +132,15 @@ function ClassroomPage() {
 
     async function setupPipeline() {
       try {
+        // CLEANUP: Clear any stale remote streams from previous sessions
+        console.log('[SETUP] 🧹 Clearing stale remote streams...');
+        remoteStreamsMapRef.current.forEach((stream) => {
+          stream.track?.stop();
+        });
+        remoteStreamsMapRef.current.clear();
+        setRemoteStreams(new Map());
+        consumersRef.current.clear();
+
         const token = localStorage.getItem('token');
         const socket = initSocket(token);
         socketRef.current = socket;
@@ -216,6 +277,68 @@ function ClassroomPage() {
                 });
                 producersRef.current.audio = audioProd;
                 console.log('[PRODUCE] ✅ Audio producer created:', audioProd.id);
+
+                // Setup audio capture for transcription (teacher only)
+                console.log('[TRANSCRIPTION] Setting up Web Audio capture...');
+                try {
+                  // Use the reusable setupWebAudioCapture function
+                  const audioSetupSuccess = await setupWebAudioCapture(audioTrack);
+                  
+                  if (audioSetupSuccess) {
+                    // Start transcription
+                    const started = await transcription.startTranscription();
+                    console.log('[TRANSCRIPTION] startTranscription() returned:', started);
+                  } else {
+                    throw new Error('Web Audio capture setup failed');
+                  }
+                } catch (err) {
+                  console.warn('[TRANSCRIPTION] Web Audio setup failed:', err.message);
+                  console.log('[TRANSCRIPTION] Falling back to MediaRecorder method...');
+                  
+                  // Fallback to MediaRecorder if Web Audio fails
+                  try {
+                    const audioStream = new MediaStream([audioTrack]);
+                    const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+                      ? 'audio/webm'
+                      : 'audio/wav';
+
+                    const mediaRecorder = new MediaRecorder(audioStream, { mimeType });
+                    audioRecorderRef.current = mediaRecorder;
+                    console.log('[TRANSCRIPTION] Using fallback MediaRecorder with mimeType:', mimeType);
+
+                    let chunkCount = 0;
+                    let lastChunkTime = 0;
+
+                    mediaRecorder.ondataavailable = (evt) => {
+                      if (evt.data && evt.data.size > 0) {
+                        chunkCount++;
+                        const now = Date.now();
+                        const timeSinceLastChunk = now - lastChunkTime;
+
+                        console.log(`[TRANSCRIPTION] Chunk #${chunkCount}: ${evt.data.size} bytes, time: ${timeSinceLastChunk}ms`);
+
+                        if (timeSinceLastChunk > 500) {
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            const base64 = reader.result.split(',')[1];
+                            console.log(`[TRANSCRIPTION] Sending chunk: ${base64.length} bytes`);
+                            if (transcription.sendAudioChunk) {
+                              transcription.sendAudioChunk(base64, now - (lastChunkTime | 0));
+                            }
+                          };
+                          reader.readAsDataURL(evt.data);
+                          lastChunkTime = now;
+                        }
+                      }
+                    };
+
+                    mediaRecorder.start(1000);
+                    const started = await transcription.startTranscription();
+                    console.log('[TRANSCRIPTION] Fallback method started:', started);
+                  } catch (fbErr) {
+                    console.error('[TRANSCRIPTION] Fallback also failed:', fbErr.message);
+                  }
+                }
               }
             } catch (err) {
               console.error('[LOCAL-MEDIA] Failed:', err);
@@ -367,39 +490,172 @@ function ClassroomPage() {
   }
 
   /**
-   * Toggle mic
+   * Setup or reconnect Web Audio capture for transcription
+   * Call this whenever audio track changes (initial setup, mic toggle ON, etc.)
    */
-  const handleToggleMic = () => {
+  async function setupWebAudioCapture(audioTrack) {
+    try {
+      // Disconnect old processor if it exists
+      if (processorRef.current && mediaSourceRef.current) {
+        mediaSourceRef.current.disconnect();
+        processorRef.current.disconnect();
+        console.log('[TRANSCRIPTION] ✅ Disconnected old Web Audio processor');
+      }
+
+      // Create or reuse audio context
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('[TRANSCRIPTION] Created new AudioContext');
+      }
+      const audioContext = audioContextRef.current;
+
+      // Create new media source from the fresh audio track
+      mediaSourceRef.current = audioContext.createMediaStreamSource(new MediaStream([audioTrack]));
+      console.log('[TRANSCRIPTION] Created new MediaStreamSource from fresh audio track');
+
+      // Create new processor
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      // Connect processor
+      mediaSourceRef.current.connect(processor);
+      processor.connect(audioContext.destination);
+
+      // Setup audio processing callback
+      processor.onaudioprocess = (event) => {
+        if (processingAudioRef.current) return;
+
+        const inputData = event.inputBuffer.getChannelData(0);
+        // Only send chunks that have actual audio (not silence)
+        const hasAudio = inputData.some(sample => Math.abs(sample) > 0.01);
+
+        if (hasAudio) {
+          processingAudioRef.current = true;
+          // Convert audio samples to WAV format
+          const wavBlob = encodeWAV(inputData, audioContext.sampleRate);
+
+          // Convert blob to base64
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result.split(',')[1];
+            console.log(`[TRANSCRIPTION] Sending audio chunk: ${base64.length} bytes`);
+
+            if (transcription.sendAudioChunk) {
+              transcription.sendAudioChunk(base64, Date.now());
+            }
+            processingAudioRef.current = false;
+          };
+          reader.readAsDataURL(wavBlob);
+        }
+      };
+
+      console.log('[TRANSCRIPTION] ✅ Web Audio capture reconnected to fresh track');
+      return true;
+    } catch (err) {
+      console.error('[TRANSCRIPTION] ❌ Failed to setup Web Audio capture:', err.message);
+      return false;
+    }
+  }
+
+  /**
+   * Toggle microphone - properly stops/restarts audio hardware and transcription
+   */
+  const handleToggleMic = async () => {
     const next = !micOn;
     setMicOn(next);
-    if (localStream) {
-      localStream.getAudioTracks().forEach((t) => {
-        t.enabled = next;
-      });
+    
+    if (next) {
+      // RE-ENABLE: Get fresh audio stream and RESTART TRANSCRIPTION
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true }, video: false });
+        const audioTrack = newStream.getAudioTracks()[0];
+        if (audioTrack && producersRef.current.audio) {
+          await producersRef.current.audio.replaceTrack(audioTrack);
+          // Update localStream with new audio track
+          localStream.getAudioTracks().forEach(t => t.stop());
+          localStream.addTrack(audioTrack);
+          producersRef.current.audio.resume();
+          console.log('[CONTROL] 🎤 Audio producer resumed with fresh track');
+          
+          // CRITICAL: Reconnect Web Audio processor to the new track
+          console.log('[CONTROL] 🔌 Reconnecting Web Audio capture to new track...');
+          const audioSetupSuccess = await setupWebAudioCapture(audioTrack);
+          if (!audioSetupSuccess) {
+            console.warn('[CONTROL] ⚠️ Web Audio capture setup failed, but continuing...');
+          }
+          
+          // CRITICAL: Restart transcription with new audio track
+          if (transcription && typeof transcription.startTranscription === 'function') {
+            console.log('[CONTROL] 🔄 Restarting transcription with new audio track...');
+            const transcStarted = await transcription.startTranscription();
+            console.log('[CONTROL] 🎙️ Transcription restarted:', transcStarted);
+          }
+        }
+      } catch (err) {
+        console.error('[CONTROL] ❌ Failed to re-enable mic:', err);
+        setMicOn(false);
+      }
+    } else {
+      // DISABLE: Stop audio hardware and transcription
+      if (transcription && typeof transcription.stopTranscription === 'function') {
+        console.log('[CONTROL] 🛑 Stopping transcription...');
+        await transcription.stopTranscription();
+      }
+      
+      if (localStream) {
+        localStream.getAudioTracks().forEach((t) => {
+          t.stop(); // Fully release audio hardware
+        });
+      }
+      
+      if (producersRef.current.audio) {
+        producersRef.current.audio.pause();
+        console.log('[CONTROL] 🎤 Audio producer paused and track stopped');
+      }
     }
-    if (producersRef.current.audio) {
-      if (next) producersRef.current.audio.resume();
-      else producersRef.current.audio.pause();
-    }
-    console.log('[CONTROL] Mic:', next ? 'ON' : 'OFF');
+    
+    console.log('[CONTROL] Mic:', next ? 'ON ✅ (fresh hardware)' : 'OFF (hardware released) ⏸️');
   };
 
   /**
-   * Toggle camera
+   * Toggle camera - properly stops/restarts video hardware
    */
-  const handleToggleCamera = () => {
+  const handleToggleCamera = async () => {
     const next = !cameraOn;
     setCameraOn(next);
-    if (localStream) {
-      localStream.getVideoTracks().forEach((t) => {
-        t.enabled = next;
-      });
+    
+    if (next) {
+      // RE-ENABLE: Get fresh video stream from camera
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+        const videoTrack = newStream.getVideoTracks()[0];
+        if (videoTrack && producersRef.current.video) {
+          await producersRef.current.video.replaceTrack(videoTrack);
+          // Update localStream with new video track
+          localStream.getVideoTracks().forEach(t => t.stop());
+          localStream.addTrack(videoTrack);
+          producersRef.current.video.resume();
+          console.log('[CONTROL] 🎥 Video producer resumed with fresh track');
+        }
+      } catch (err) {
+        console.error('[CONTROL] ❌ Failed to re-enable camera:', err);
+        setCameraOn(false);
+      }
+    } else {
+      // DISABLE: Stop video hardware completely - THIS TURNS OFF THE PHYSICAL CAMERA LIGHT
+      if (localStream) {
+        localStream.getVideoTracks().forEach((t) => {
+          t.stop(); // Fully release camera hardware - LIGHT WILL TURN OFF
+        });
+      }
+      
+      if (producersRef.current.video) {
+        producersRef.current.video.pause();
+        console.log('[CONTROL] 🎥 Video producer paused and track stopped - CAMERA LIGHT OFF');
+      }
     }
-    if (producersRef.current.video) {
-      if (next) producersRef.current.video.resume();
-      else producersRef.current.video.pause();
-    }
-    console.log('[CONTROL] Camera:', next ? 'ON' : 'OFF');
+    
+    console.log('[CONTROL] Camera:', next ? 'ON ✅ (fresh hardware)' : 'OFF (hardware released - light off) ⏸️');
   };
 
   /**
@@ -473,8 +729,34 @@ function ClassroomPage() {
   /**
    * End class
    */
+  /**
+   * Toggle transcription visibility
+   */
+  const handleToggleTranscript = () => {
+    setTranscriptVisible((prev) => !prev);
+    transcription.toggleVisibility();
+    console.log('[CONTROL] Transcript:', transcriptVisible ? 'HIDDEN' : 'VISIBLE');
+  };
+
   const handleEndClass = () => {
     if (!window.confirm('End class for everyone?')) return;
+    
+    // Stop transcription if recording
+    if (transcription.isRecording) {
+      transcription.stopTranscription().catch((err) => {
+        console.warn('[TRANSCRIPTION] Stop error:', err);
+      });
+    }
+
+    // Stop audio recording
+    if (audioRecorderRef.current) {
+      try {
+        audioRecorderRef.current.stop();
+      } catch (e) {
+        console.warn('[TRANSCRIPTION] Could not stop recorder:', e);
+      }
+    }
+
     if (socketRef.current && (user.role === 'teacher' || user.role === 'instructor')) {
       socketRef.current.emit('end-class', { sessionId });
     }
@@ -575,10 +857,12 @@ function ClassroomPage() {
           cameraOn={cameraOn}
           shareOn={shareOn}
           recordOn={recordOn}
+          transcriptOn={transcriptVisible}
           onToggleMic={handleToggleMic}
           onToggleCamera={handleToggleCamera}
           onToggleShare={handleToggleShare}
           onToggleRecord={handleToggleRecord}
+          onToggleTranscript={handleToggleTranscript}
           onEndClass={handleEndClass}
           userRole={user.role}
         />
@@ -588,6 +872,16 @@ function ClassroomPage() {
         <ControlsBar
           userRole={user.role}
           onEndClass={handleEndClass}
+        />
+      )}
+
+      {/* Transcription panel - only visible when toggled by teacher */}
+      {(user.role === 'teacher' || user.role === 'instructor') && (
+        <TranscriptionPanel
+          segments={transcription.segments}
+          isRecording={transcription.isRecording}
+          fullText={transcription.fullText}
+          isVisible={transcriptVisible && transcription.isRecording}
         />
       )}
     </div>
