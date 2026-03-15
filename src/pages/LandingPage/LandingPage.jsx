@@ -30,7 +30,7 @@ function LandingPage() {
   };
 
   const openLiveClass = () => {
-    window.location.href = '/classroom.html';
+    window.location.href = '/classroom';
   };
 
   const resetPanel = () => {

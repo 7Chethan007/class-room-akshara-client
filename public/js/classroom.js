@@ -21,6 +21,7 @@ let transcriptBuffer = [];
 let transcriptFlushTimer = null;
 const consumedProducerIds = new Set();
 const transcriptStatus = { whisperEnabled: false };
+const participantMap = new Map();
 
 function setButtonState(button, isActive, onText, offText) {
   if (!button) return;
@@ -83,6 +84,9 @@ function connectSocket(token, sessionId, user) {
 
   socket.on('user-joined', addParticipant);
   socket.on('user-left', removeParticipant);
+  socket.on('room-participants', ({ participants }) => {
+    syncParticipants(Array.isArray(participants) ? participants : []);
+  });
   socket.on('class-ended', handleClassEnded);
   socket.on('chat-message', ({ name, message }) => console.log(`${name}: ${message}`));
   socket.on('new-producer', ({ producerId, userId, kind }) => {
@@ -95,19 +99,49 @@ function connectSocket(token, sessionId, user) {
  * addParticipant — renders participant row
  */
 function addParticipant({ userId, role, name }) {
+  if (!userId) return;
+  participantMap.set(String(userId), { userId: String(userId), role, name: name || 'Unknown' });
+  renderParticipants();
+}
+
+function syncParticipants(participants) {
+  participantMap.clear();
+  participants.forEach((p) => {
+    if (!p?.userId) return;
+    participantMap.set(String(p.userId), {
+      userId: String(p.userId),
+      role: p.role,
+      name: p.name || 'Unknown',
+    });
+  });
+  renderParticipants();
+}
+
+function renderParticipants() {
   const list = document.querySelector('.panel-list');
   if (!list) return;
-  const id = `p-${userId}`;
-  if (document.getElementById(id)) return;
-  const color = getColor(userId);
-  const div = document.createElement('div');
-  div.id = id;
-  div.className = 'p-item';
-  div.innerHTML = `
-    <div class="p-av" style="background:${color}">${getInitials(name)}</div>
-    <div class="p-name">${name} • ${role}</div>
-  `;
-  list.appendChild(div);
+  list.innerHTML = '';
+
+  const participants = Array.from(participantMap.values());
+  participants.sort((a, b) => {
+    const roleWeight = (r) => (r === 'teacher' ? 0 : 1);
+    const byRole = roleWeight(a.role) - roleWeight(b.role);
+    if (byRole !== 0) return byRole;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  participants.forEach(({ userId, role, name }) => {
+    const color = getColor(userId);
+    const div = document.createElement('div');
+    div.id = `p-${userId}`;
+    div.className = `p-item ${role === 'teacher' ? 'presenter-row' : ''}`;
+    div.innerHTML = `
+      <div class="p-av" style="background:${color}">${getInitials(name)}</div>
+      <div class="p-name">${name} • ${role}</div>
+    `;
+    list.appendChild(div);
+  });
+
   updateParticipantCount();
 }
 
@@ -115,9 +149,9 @@ function addParticipant({ userId, role, name }) {
  * removeParticipant — removes participant row
  */
 function removeParticipant({ userId }) {
-  const el = document.getElementById(`p-${userId}`);
-  if (el && el.parentNode) el.parentNode.removeChild(el);
-  updateParticipantCount();
+  if (!userId) return;
+  participantMap.delete(String(userId));
+  renderParticipants();
 }
 
 /**
