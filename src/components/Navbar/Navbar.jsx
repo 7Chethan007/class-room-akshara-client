@@ -6,7 +6,19 @@ import './Navbar.css';
  * Sections:
  *   Logo  |  Center links  |  Action buttons
  */
-function Navbar() {
+function Navbar({ onSchedule, onJoin }) {
+  const handleHome = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSchedule = () => {
+    onSchedule?.();
+  };
+
+  const handleJoin = () => {
+    onJoin?.();
+  };
+
   return (
     <nav className="navbar" id="navbar" aria-label="Main navigation">
       <div className="navbar-inner">
@@ -18,17 +30,17 @@ function Navbar() {
 
         {/* Center links — hidden on mobile */}
         <div className="nav-links">
-          <a href="#home" id="nav-home">Home</a>
-          <a href="#schedule" id="nav-schedule">Schedule Now</a>
-          <a href="#join" id="nav-join">Join Now</a>
+          <button type="button" id="nav-home" className="nav-link-btn" onClick={handleHome}>Home</button>
+          <button type="button" id="nav-schedule" className="nav-link-btn" onClick={handleSchedule}>Schedule Now</button>
+          <button type="button" id="nav-join" className="nav-link-btn" onClick={handleJoin}>Join Now</button>
         </div>
 
         {/* Action buttons */}
         <div className="nav-actions">
-          <button className="btn-outline" id="btn-schedule-nav" type="button">
+          <button className="btn-outline" id="btn-schedule-nav" type="button" onClick={onSchedule}>
             Schedule Now
           </button>
-          <button className="btn-fill" id="btn-join-nav" type="button">
+          <button className="btn-fill" id="btn-join-nav" type="button" onClick={onJoin}>
             Join Now
           </button>
         </div>

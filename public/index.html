@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ClassRoom Live — Join live classes, interact in real-time, and access recordings." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+    <title>ClassRoom Live — Virtual Learning Platform</title>
+    <!-- Socket.io client -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- mediasoup client -->
+    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client/mediasoup-client.min.js"></script>
+    <style>
+      /* styles trimmed from plan for brevity; copied in full earlier */
+      @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap');
+      .pg { font-family: 'Nunito', sans-serif; background: #F5EFE6; min-height: 600px; display: flex; flex-direction: column; }
+      .nav { display: flex; align-items: center; justify-content: space-between; padding: 13px 32px; background: #fff; border-bottom: 1.5px solid #E8D9C8; }
+      .logo { font-family: 'Fredoka One', cursive; font-size: 20px; color: #C07050; display: flex; align-items: center; gap: 7px; }
+      .logo-dot { width: 9px; height: 9px; border-radius: 50%; background: #C07050; display: inline-block; }
+      .nav-links { display: flex; gap: 28px; align-items: center; }
+      .nav-link { font-size: 14px; color: #7A5C4A; font-weight: 600; cursor: pointer; padding: 6px 0; border-bottom: 2px solid transparent; }
+      .nav-link:hover { border-bottom-color: #C07050; color: #C07050; }
+      .nav-actions { display: flex; gap: 10px; align-items: center; }
+      .nav-btn-outline { background: transparent; color: #C07050; border: 2px solid #C07050; border-radius: 20px; padding: 7px 18px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; }
+      .nav-btn-fill { background: #C07050; color: #fff; border: none; border-radius: 20px; padding: 7px 18px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; }
+      .hero { display: flex; align-items: center; justify-content: space-between; padding: 52px 48px 48px; gap: 40px; flex: 1; }
+      .hero-text { flex: 1; }
+      .hero-badge { display: inline-block; background: #F0D5C0; color: #A05030; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-bottom: 18px; letter-spacing: 0.5px; }
+      .hero-title { font-family: 'Fredoka One', cursive; font-size: 42px; color: #5A3A28; line-height: 1.15; margin-bottom: 14px; }
+      .hero-title span { color: #C07050; }
+      .hero-sub { font-size: 15px; color: #8A6A58; line-height: 1.75; max-width: 380px; margin-bottom: 12px; }
+      .features-list { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+      .feat-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #7A5A48; font-weight: 600; }
+      .feat-dot { width: 7px; height: 7px; border-radius: 50%; background: #C07050; flex-shrink: 0; }
+      .hero-right { flex: 0 0 310px; display: flex; flex-direction: column; gap: 16px; }
+      .class-card { background: #fff; border-radius: 20px; border: 1.5px solid #E2CBBA; padding: 20px; box-shadow: 0 4px 20px rgba(150,90,60,0.08); }
+      .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+      .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; background: #C07050; }
+      .card-title { font-size: 14px; font-weight: 700; color: #5A3A28; }
+      .card-sub { font-size: 11px; color: #A07868; }
+      .live-pill { background: #E84040; color: #fff; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 2px 8px; margin-left: auto; }
+      .video-mock { background: linear-gradient(135deg, #D0956A 0%, #7A4A32 100%); border-radius: 12px; height: 110px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; }
+      .play-wrap { width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.6); }
+      .students-row { display: flex; align-items: center; gap: 5px; }
+      .stud-av { width: 24px; height: 24px; border-radius: 50%; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; color: #fff; border: 2px solid #fff; }
+      .stud-count { font-size: 11px; color: #A07868; margin-left: 4px; font-weight: 600; }
+      .cta-buttons { display: flex; flex-direction: column; gap: 10px; }
+      .cta-btn-fill { background: #C07050; color: #fff; border: none; border-radius: 14px; padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; text-align: center; }
+      .cta-btn-outline { background: transparent; color: #C07050; border: 2px solid #C07050; border-radius: 14px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; text-align: center; }
+      .footer { text-align: center; padding: 14px; font-size: 12px; color: #B09080; border-top: 1px solid #E8D9C8; background: #fff; }
+      .footer span { color: #C07050; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <div class="pg">
+      <div class="nav">
+        <div class="logo">
+          <span class="logo-dot"></span> ClassRoom Live
+        </div>
+        <div class="nav-links">
+          <span class="nav-link">Home</span>
+          <span class="nav-link">Schedule Now</span>
+          <span class="nav-link">Join Now</span>
+        </div>
+        <div class="nav-actions">
+          <button class="nav-btn-outline">Schedule Now</button>
+          <button class="nav-btn-fill">Join Now</button>
+        </div>
+      </div>
+
+      <div class="hero">
+        <div class="hero-text">
+          <div class="hero-badge">✦ Virtual Learning Platform</div>
+          <div class="hero-title">Learn Together,<br /><span>Anywhere.</span></div>
+          <div class="hero-sub">Join live classes, interact in real-time, and access recordings — all in one warm and welcoming space.</div>
+          <div class="features-list">
+            <div class="feat-row"><div class="feat-dot"></div> Live video & audio for teacher and students</div>
+            <div class="feat-row"><div class="feat-dot"></div> Screen sharing in one click</div>
+            <div class="feat-row"><div class="feat-dot"></div> Auto transcription & cloud recording</div>
+            <div class="feat-row"><div class="feat-dot"></div> Schedule classes in advance</div>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="class-card">
+            <div class="card-header">
+              <div class="avatar">Ms</div>
+              <div>
+                <div class="card-title">Math — Chapter 5</div>
+                <div class="card-sub">Ms. Priya · 8:00 AM</div>
+              </div>
+              <div class="live-pill">● LIVE</div>
+            </div>
+            <div class="video-mock">
+              <div class="play-wrap">
+                <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M1 1l10 6-10 6V1z" fill="white"/></svg>
+              </div>
+              <div style="position:absolute;bottom:8px;left:10px;font-size:9px;color:rgba(255,255,255,0.7);font-weight:700">Ms. Priya (Presenter)</div>
+            </div>
+            <div class="students-row">
+              <div class="stud-av" style="background:#5B7FD4">AK</div>
+              <div class="stud-av" style="background:#6BAA7A">RV</div>
+              <div class="stud-av" style="background:#D47A5B">NP</div>
+              <div class="stud-av" style="background:#A06BB8">SK</div>
+              <div class="stud-av" style="background:#D4A55B">+</div>
+              <span class="stud-count">12 students joined</span>
+            </div>
+          </div>
+
+          <div class="cta-buttons">
+            <button class="cta-btn-fill">📅 Schedule Now</button>
+            <button class="cta-btn-outline">🚀 Join Now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        Made with <span>♥</span> by <span>Chethan</span>
+      </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+  </body>
+</html>
