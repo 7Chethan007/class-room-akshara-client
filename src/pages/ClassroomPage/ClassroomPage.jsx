@@ -440,12 +440,24 @@ function ClassroomPage() {
             const participant = participants.find((p) => p.userId === (data.producerUserId || userId));
             const userRole = participant?.role || 'student';
 
+            // Infer stream kind so we can correctly place screen vs camera (PiP)
+            let inferredKind = data.producerKind || data.kind;
+            const trackSettings = consumer.track?.getSettings ? consumer.track.getSettings() : {};
+            const label = consumer.track?.label || '';
+
+            // DisplayMedia tracks expose displaySurface; labels often contain screen/display keywords
+            if (trackSettings.displaySurface || /screen|display|monitor|window/i.test(label)) {
+              inferredKind = 'screen';
+            } else if (!inferredKind && consumer.track?.kind) {
+              inferredKind = consumer.track.kind;
+            }
+
             const entry = {
               producerId,
               stream,
               userId: data.producerUserId || userId,
               role: userRole,
-              kind: data.producerKind || data.kind,
+              kind: inferredKind,
             };
 
             console.log('[REMOTE] ✅ Adding to map:', {
