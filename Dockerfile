@@ -1,5 +1,4 @@
 # Build stage
-# Build stage
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -21,17 +20,14 @@ RUN apk add --no-cache curl
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Create nginx config with reverse proxy for backend
-COPY <<'EOF' /etc/nginx/conf.d/default.conf
-server {
+RUN echo 'server {
     listen 3000;
     
-    # Serve static files
     location / {
         root /usr/share/nginx/html;
         try_files $uri $uri/ /index.html;
     }
     
-    # Reverse proxy for backend API
     location /api {
         proxy_pass http://akshara-backend:5001;
         proxy_set_header Host $host;
@@ -39,8 +35,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-}
-EOF
+}' > /etc/nginx/conf.d/default.conf
 
 # Copy built files from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
