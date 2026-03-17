@@ -3,9 +3,10 @@ import ClassroomNavbar from '../../components/ClassroomNavbar/ClassroomNavbar';
 import PresenterTile from '../../components/PresenterTile/PresenterTile';
 import StudentTiles from '../../components/StudentTiles/StudentTiles';
 import ParticipantsPanel from '../../components/ParticipantsPanel/ParticipantsPanel';
-import TranscriptionPanel from '../../components/TranscriptionPanel/TranscriptionPanel';
 import ControlsBar from '../../components/ControlsBar/ControlsBar';
-import { useTranscription } from '../../hooks/useTranscription';
+import useTranscription from '../../hooks/useTranscription';
+import '../../components/TranscriptionPanel/TranscriptionPanel.css';
+import useWebRTC from '../../hooks/useWebRTC';
 import {
   initSocket,
   disconnectSocket,
@@ -76,7 +77,9 @@ function ClassroomPage() {
   const [cameraOn, setCameraOn] = useState(true);
   const [shareOn, setShareOn] = useState(false);
   const [recordOn, setRecordOn] = useState(false);
-  const [transcriptVisible, setTranscriptVisible] = useState(false);
+  const [receivedTranscript, setReceivedTranscript] = useState('');
+
+  const isTeacher = user?.role === 'teacher' || user?.role === 'instructor';
 
   const socketRef = useRef(null);
   const deviceRef = useRef(null);
@@ -86,6 +89,7 @@ function ClassroomPage() {
   const consumersRef = useRef(new Map());
   const remoteStreamsMapRef = useRef(new Map()); // producerId -> { stream, userId, kind }
   const audioRecorderRef = useRef(null); // MediaRecorder for capturing teacher's audio
+  const transcriptEndRef = useRef(null);
   
   // Web Audio refs for transcription capture
   const audioContextRef = useRef(null);
@@ -94,7 +98,30 @@ function ClassroomPage() {
   const processingAudioRef = useRef(false);
 
   // Transcription hook
-  const transcription = useTranscription(socketRef, sessionId ? String(sessionId) : null, user?._id || user?.id);
+  const { transcript, partialText, isTranscribing, startTranscription, stopTranscription } = useTranscription(
+    sessionId ? String(sessionId) : null,
+    isTeacher
+  );
+  const { localVideoRef } = useWebRTC(socketRef.current, sessionId, isTeacher);
+
+  // Bind local stream to preview video for immediate self-view
+  useEffect(() => {
+    if (localVideoRef?.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.muted = true;
+      localVideoRef.current.autoplay = true;
+      localVideoRef.current.playsInline = true;
+      const playPromise = localVideoRef.current.play();
+      if (playPromise && playPromise.catch) {
+        playPromise.catch((err) => console.warn('[LOCAL PREVIEW] play blocked:', err?.message));
+      }
+    }
+  }, [localStream, localVideoRef]);
+
+  // Auto-scroll transcript panel
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [transcript, partialText, receivedTranscript]);
 
   /**
    * STEP 1: Initialize auth from localStorage
@@ -163,6 +190,14 @@ function ClassroomPage() {
             setParticipants(Array.isArray(participants) ? participants : []);
           }
         });
+
+        // Transcript relay for students
+        const onTranscriptLine = ({ text }) => {
+          if (isTeacher) return;
+          if (!text) return;
+          setReceivedTranscript((prev) => prev + text + ' ');
+        };
+        socket.on('transcript-line', onTranscriptLine);
 
         // Get RTP capabilities and initialize device
         socket.emit('get-router-rtp-capabilities', { sessionId }, async (rtpCaps) => {
@@ -279,66 +314,7 @@ function ClassroomPage() {
                 console.log('[PRODUCE] ✅ Audio producer created:', audioProd.id);
 
                 // Setup audio capture for transcription (teacher only)
-                console.log('[TRANSCRIPTION] Setting up Web Audio capture...');
-                try {
-                  // Use the reusable setupWebAudioCapture function
-                  const audioSetupSuccess = await setupWebAudioCapture(audioTrack);
-                  
-                  if (audioSetupSuccess) {
-                    // Start transcription
-                    const started = await transcription.startTranscription();
-                    console.log('[TRANSCRIPTION] startTranscription() returned:', started);
-                  } else {
-                    throw new Error('Web Audio capture setup failed');
-                  }
-                } catch (err) {
-                  console.warn('[TRANSCRIPTION] Web Audio setup failed:', err.message);
-                  console.log('[TRANSCRIPTION] Falling back to MediaRecorder method...');
-                  
-                  // Fallback to MediaRecorder if Web Audio fails
-                  try {
-                    const audioStream = new MediaStream([audioTrack]);
-                    const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-                      ? 'audio/webm'
-                      : 'audio/wav';
-
-                    const mediaRecorder = new MediaRecorder(audioStream, { mimeType });
-                    audioRecorderRef.current = mediaRecorder;
-                    console.log('[TRANSCRIPTION] Using fallback MediaRecorder with mimeType:', mimeType);
-
-                    let chunkCount = 0;
-                    let lastChunkTime = 0;
-
-                    mediaRecorder.ondataavailable = (evt) => {
-                      if (evt.data && evt.data.size > 0) {
-                        chunkCount++;
-                        const now = Date.now();
-                        const timeSinceLastChunk = now - lastChunkTime;
-
-                        console.log(`[TRANSCRIPTION] Chunk #${chunkCount}: ${evt.data.size} bytes, time: ${timeSinceLastChunk}ms`);
-
-                        if (timeSinceLastChunk > 500) {
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            const base64 = reader.result.split(',')[1];
-                            console.log(`[TRANSCRIPTION] Sending chunk: ${base64.length} bytes`);
-                            if (transcription.sendAudioChunk) {
-                              transcription.sendAudioChunk(base64, now - (lastChunkTime | 0));
-                            }
-                          };
-                          reader.readAsDataURL(evt.data);
-                          lastChunkTime = now;
-                        }
-                      }
-                    };
-
-                    mediaRecorder.start(1000);
-                    const started = await transcription.startTranscription();
-                    console.log('[TRANSCRIPTION] Fallback method started:', started);
-                  } catch (fbErr) {
-                    console.error('[TRANSCRIPTION] Fallback also failed:', fbErr.message);
-                  }
-                }
+                console.log('[TRANSCRIPTION] Capture available for manual start via controls.');
               }
             } catch (err) {
               console.error('[LOCAL-MEDIA] Failed:', err);
@@ -366,6 +342,7 @@ function ClassroomPage() {
     return () => {
       isActive = false;
       if (socketRef.current) {
+        socketRef.current.off('transcript-line');
         console.log('[CLEANUP] Leaving room');
         socketRef.current.emit('leave-room', {
           sessionId,
@@ -378,7 +355,7 @@ function ClassroomPage() {
         localStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [user, sessionId]);
+  }, [user, sessionId, isTeacher]);
 
   /**
    * Setup remote stream by consuming a producer
@@ -490,74 +467,6 @@ function ClassroomPage() {
   }
 
   /**
-   * Setup or reconnect Web Audio capture for transcription
-   * Call this whenever audio track changes (initial setup, mic toggle ON, etc.)
-   */
-  async function setupWebAudioCapture(audioTrack) {
-    try {
-      // Disconnect old processor if it exists
-      if (processorRef.current && mediaSourceRef.current) {
-        mediaSourceRef.current.disconnect();
-        processorRef.current.disconnect();
-        console.log('[TRANSCRIPTION] ✅ Disconnected old Web Audio processor');
-      }
-
-      // Create or reuse audio context
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-        console.log('[TRANSCRIPTION] Created new AudioContext');
-      }
-      const audioContext = audioContextRef.current;
-
-      // Create new media source from the fresh audio track
-      mediaSourceRef.current = audioContext.createMediaStreamSource(new MediaStream([audioTrack]));
-      console.log('[TRANSCRIPTION] Created new MediaStreamSource from fresh audio track');
-
-      // Create new processor
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
-
-      // Connect processor
-      mediaSourceRef.current.connect(processor);
-      processor.connect(audioContext.destination);
-
-      // Setup audio processing callback
-      processor.onaudioprocess = (event) => {
-        if (processingAudioRef.current) return;
-
-        const inputData = event.inputBuffer.getChannelData(0);
-        // Only send chunks that have actual audio (not silence)
-        const hasAudio = inputData.some(sample => Math.abs(sample) > 0.01);
-
-        if (hasAudio) {
-          processingAudioRef.current = true;
-          // Convert audio samples to WAV format
-          const wavBlob = encodeWAV(inputData, audioContext.sampleRate);
-
-          // Convert blob to base64
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = reader.result.split(',')[1];
-            console.log(`[TRANSCRIPTION] Sending audio chunk: ${base64.length} bytes`);
-
-            if (transcription.sendAudioChunk) {
-              transcription.sendAudioChunk(base64, Date.now());
-            }
-            processingAudioRef.current = false;
-          };
-          reader.readAsDataURL(wavBlob);
-        }
-      };
-
-      console.log('[TRANSCRIPTION] ✅ Web Audio capture reconnected to fresh track');
-      return true;
-    } catch (err) {
-      console.error('[TRANSCRIPTION] ❌ Failed to setup Web Audio capture:', err.message);
-      return false;
-    }
-  }
-
-  /**
    * Toggle microphone - properly stops/restarts audio hardware and transcription
    */
   const handleToggleMic = async () => {
@@ -565,7 +474,7 @@ function ClassroomPage() {
     setMicOn(next);
     
     if (next) {
-      // RE-ENABLE: Get fresh audio stream and RESTART TRANSCRIPTION
+      // RE-ENABLE: Get fresh audio stream
       try {
         const newStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true }, video: false });
         const audioTrack = newStream.getAudioTracks()[0];
@@ -576,32 +485,13 @@ function ClassroomPage() {
           localStream.addTrack(audioTrack);
           producersRef.current.audio.resume();
           console.log('[CONTROL] 🎤 Audio producer resumed with fresh track');
-          
-          // CRITICAL: Reconnect Web Audio processor to the new track
-          console.log('[CONTROL] 🔌 Reconnecting Web Audio capture to new track...');
-          const audioSetupSuccess = await setupWebAudioCapture(audioTrack);
-          if (!audioSetupSuccess) {
-            console.warn('[CONTROL] ⚠️ Web Audio capture setup failed, but continuing...');
-          }
-          
-          // CRITICAL: Restart transcription with new audio track
-          if (transcription && typeof transcription.startTranscription === 'function') {
-            console.log('[CONTROL] 🔄 Restarting transcription with new audio track...');
-            const transcStarted = await transcription.startTranscription();
-            console.log('[CONTROL] 🎙️ Transcription restarted:', transcStarted);
-          }
         }
       } catch (err) {
         console.error('[CONTROL] ❌ Failed to re-enable mic:', err);
         setMicOn(false);
       }
     } else {
-      // DISABLE: Stop audio hardware and transcription
-      if (transcription && typeof transcription.stopTranscription === 'function') {
-        console.log('[CONTROL] 🛑 Stopping transcription...');
-        await transcription.stopTranscription();
-      }
-      
+      // DISABLE: Stop audio hardware
       if (localStream) {
         localStream.getAudioTracks().forEach((t) => {
           t.stop(); // Fully release audio hardware
@@ -611,6 +501,10 @@ function ClassroomPage() {
       if (producersRef.current.audio) {
         producersRef.current.audio.pause();
         console.log('[CONTROL] 🎤 Audio producer paused and track stopped');
+      }
+
+      if (isTeacher && isTranscribing) {
+        stopTranscription();
       }
     }
     
@@ -632,8 +526,12 @@ function ClassroomPage() {
         if (videoTrack && producersRef.current.video) {
           await producersRef.current.video.replaceTrack(videoTrack);
           // Update localStream with new video track
-          localStream.getVideoTracks().forEach(t => t.stop());
-          localStream.addTrack(videoTrack);
+          localStream?.getVideoTracks().forEach((t) => t.stop());
+          const updated = new MediaStream([
+            ...(localStream ? localStream.getAudioTracks() : []),
+            videoTrack,
+          ]);
+          setLocalStream(updated);
           producersRef.current.video.resume();
           console.log('[CONTROL] 🎥 Video producer resumed with fresh track');
         }
@@ -647,6 +545,7 @@ function ClassroomPage() {
         localStream.getVideoTracks().forEach((t) => {
           t.stop(); // Fully release camera hardware - LIGHT WILL TURN OFF
         });
+        setLocalStream(new MediaStream(localStream.getAudioTracks()));
       }
       
       if (producersRef.current.video) {
@@ -726,26 +625,16 @@ function ClassroomPage() {
     console.log('[RECORD]:', next ? 'STARTING' : 'STOPPED');
   };
 
-  /**
-   * End class
-   */
-  /**
-   * Toggle transcription visibility
-   */
-  const handleToggleTranscript = () => {
-    setTranscriptVisible((prev) => !prev);
-    transcription.toggleVisibility();
-    console.log('[CONTROL] Transcript:', transcriptVisible ? 'HIDDEN' : 'VISIBLE');
-  };
-
   const handleEndClass = () => {
     if (!window.confirm('End class for everyone?')) return;
     
     // Stop transcription if recording
-    if (transcription.isRecording) {
-      transcription.stopTranscription().catch((err) => {
+    if (isTranscribing) {
+      try {
+        stopTranscription();
+      } catch (err) {
         console.warn('[TRANSCRIPTION] Stop error:', err);
-      });
+      }
     }
 
     // Stop audio recording
@@ -838,6 +727,7 @@ function ClassroomPage() {
             localStream={presenterLocalStream}
             screenStream={presenterScreenStream}
             presenterName={user.role === 'teacher' ? 'You' : 'Presenter'}
+            videoRef={localVideoRef}
           />
           
           {/* Only teachers see student grid */}
@@ -857,12 +747,13 @@ function ClassroomPage() {
           cameraOn={cameraOn}
           shareOn={shareOn}
           recordOn={recordOn}
-          transcriptOn={transcriptVisible}
+          isTranscribing={isTranscribing}
           onToggleMic={handleToggleMic}
           onToggleCamera={handleToggleCamera}
           onToggleShare={handleToggleShare}
           onToggleRecord={handleToggleRecord}
-          onToggleTranscript={handleToggleTranscript}
+          onStartTranscription={startTranscription}
+          onStopTranscription={stopTranscription}
           onEndClass={handleEndClass}
           userRole={user.role}
         />
@@ -875,14 +766,30 @@ function ClassroomPage() {
         />
       )}
 
-      {/* Transcription panel - only visible when toggled by teacher */}
-      {(user.role === 'teacher' || user.role === 'instructor') && (
-        <TranscriptionPanel
-          segments={transcription.segments}
-          isRecording={transcription.isRecording}
-          fullText={transcription.fullText}
-          isVisible={transcriptVisible && transcription.isRecording}
-        />
+      {/* Transcription panel - visible only while transcribing */}
+      {((isTeacher && isTranscribing) || (!isTeacher && receivedTranscript)) && (
+        <div className="transcription-panel">
+          <div className="transcription-header">
+            <h3>Live Transcript</h3>
+          </div>
+          <div className="transcription-content">
+            { (isTeacher ? transcript : receivedTranscript) ? (
+              <div style={{ color: '#ddd', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                {isTeacher ? transcript : receivedTranscript}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <p>Waiting for speech...</p>
+              </div>
+            )}
+            {isTeacher && partialText && (
+              <div style={{ marginTop: 8, fontStyle: 'italic', color: '#aaa' }}>
+                {partialText}
+              </div>
+            )}
+            <div ref={transcriptEndRef} />
+          </div>
+        </div>
       )}
     </div>
   );

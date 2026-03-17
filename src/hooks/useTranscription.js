@@ -1,187 +1,133 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * useTranscription — manages live transcription state and Socket.io events
- */
-export function useTranscription(socketRef, sessionId, userId) {
-  const [segments, setSegments] = useState([]); // array of transcribed segments
-  const [isVisible, setIsVisible] = useState(false); // UI toggle
-  const [fullText, setFullText] = useState('');
-  const [error, setError] = useState('');
+const WS_URL = import.meta.env.VITE_TRANSCRIPTION_WS_URL || 'ws://localhost:3001';
 
-  // Use ref for isRecording to avoid stale closures in callbacks
-  const isRecordingRef = useRef(false);
-  const transcriptionIdRef = useRef(null);
-  const segmentsRef = useRef([]);
+// Converts Float32 PCM to 16-bit PCM
+function float32ToInt16(float32) {
+  const int16 = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i += 1) {
+    int16[i] = Math.max(-32768, Math.min(32767, float32[i] * 32768));
+  }
+  return int16;
+}
 
-  /**
-   * Start transcription
-   */
-  const startTranscription = useCallback(async () => {
-    if (!socketRef.current) {
-      console.error('[TRANSCRIPTION] startTranscription: socketRef.current is null');
-      return false;
+export default function useTranscription(sessionId, isTeacher) {
+  const [transcript, setTranscript] = useState('');
+  const [partialText, setPartialText] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+
+  const wsRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const processorRef = useRef(null);
+  const audioContextRef = useRef(null);
+
+  const stopTranscription = useCallback(() => {
+    try {
+      if (processorRef.current) {
+        processorRef.current.disconnect();
+        processorRef.current.onaudioprocess = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+    } finally {
+      processorRef.current = null;
+      mediaStreamRef.current = null;
+      audioContextRef.current = null;
+      wsRef.current = null;
+      setIsTranscribing(false);
+      setPartialText('');
     }
-    if (isRecordingRef.current) {
-      console.warn('[TRANSCRIPTION] startTranscription: already recording');
-      return false;
-    }
-
-    console.log('[TRANSCRIPTION] startTranscription: Emitting to server with sessionId=', sessionId, 'userId=', userId);
-    console.log('[TRANSCRIPTION] Socket connected:', socketRef.current.connected);
-
-    // CRITICAL: Set recording flag IMMEDIATELY before emitting
-    // This prevents audio chunks from being dropped while waiting for server callback
-    isRecordingRef.current = true;
-    console.log('[TRANSCRIPTION] 🔴 Recording flag set IMMEDIATELY - audio chunks will now flow');
-
-    return new Promise((resolve) => {
-      const timeoutHandle = setTimeout(() => {
-        console.error('[TRANSCRIPTION] Start timeout: server did not respond within 5 seconds');
-        isRecordingRef.current = false;
-        resolve(false);
-      }, 5000);
-
-      socketRef.current.emit(
-        'start-transcription',
-        { sessionId, userId },
-        (response) => {
-          clearTimeout(timeoutHandle);
-          console.log('[TRANSCRIPTION] Start callback received:', response);
-          
-          if (response?.error) {
-            console.error('[TRANSCRIPTION] Start error:', response.error);
-            setError(response.error);
-            isRecordingRef.current = false;
-            resolve(false);
-          } else if (response?.transcriptionId) {
-            transcriptionIdRef.current = response.transcriptionId;
-            setIsVisible(true);
-            console.log('[TRANSCRIPTION] ✅ Started with transcriptionId:', response.transcriptionId);
-            resolve(true);
-          } else {
-            console.error('[TRANSCRIPTION] Invalid response:', response);
-            isRecordingRef.current = false;
-            resolve(false);
-          }
-        }
-      );
-    });
-  }, [socketRef, sessionId, userId]);
-
-  /**
-   * Stop transcription and save
-   */
-  const stopTranscription = useCallback(async () => {
-    if (!socketRef.current || !isRecordingRef.current) return;
-
-    console.log('[TRANSCRIPTION] Stopping transcription...');
-
-    return new Promise((resolve) => {
-      socketRef.current.emit(
-        'end-transcription',
-        { sessionId, userId },
-        (response) => {
-          if (response.error) {
-            console.error('[TRANSCRIPTION] Error:', response.error);
-            setError(response.error);
-            resolve(false);
-          } else {
-            isRecordingRef.current = false; // Update ref immediately
-            console.log('[TRANSCRIPTION] ✅ Stopped and saved:', response);
-            resolve(true);
-          }
-        }
-      );
-    });
-  }, [socketRef, sessionId, userId]);
-
-  /**
-   * Toggle visibility
-   */
-  const toggleVisibility = useCallback(() => {
-    setIsVisible((prev) => !prev);
   }, []);
 
-  /**
-   * Send audio chunk for transcription
-   */
-  const sendAudioChunk = useCallback(
-    (audioBuffer, timestamp) => {
-      if (!socketRef.current) {
-        console.warn('[TRANSCRIPTION] sendAudioChunk: socketRef.current is null');
-        return;
-      }
-      if (!isRecordingRef.current) {
-        console.warn('[TRANSCRIPTION] sendAudioChunk: not recording, isRecording=', isRecordingRef.current);
-        return;
-      }
+  const startTranscription = useCallback(async () => {
+    if (!sessionId || !isTeacher || isTranscribing) return;
 
-      console.log('[TRANSCRIPTION] Emitting audio-chunk to server...');
-      socketRef.current.emit(
-        'audio-chunk',
-        {
-          sessionId,
-          audioBuffer, // Will be serialized if Buffer, or already base64
-          timestamp,
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
         },
-        (response) => {
-          if (response?.error) {
-            console.error('[TRANSCRIPTION] Send error:', response.error);
-          }
-        }
-      );
-    },
-    [socketRef, sessionId]
-  );
+        video: false,
+      });
+      mediaStreamRef.current = stream;
 
-  /**
-   * Listen for transcription segments from server
-   */
-  useEffect(() => {
-    if (!socketRef.current) return;
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
 
-    const onSegment = (data) => {
-      console.log('[TRANSCRIPTION] New segment:', data.text.substring(0, 50));
-
-      const newSegment = {
-        timestamp: data.timestamp,
-        text: data.text,
-        confidence: data.confidence,
-        index: data.segmentIndex,
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ sessionId }));
+        setIsTranscribing(true);
       };
 
-      segmentsRef.current.push(newSegment);
-      setSegments([...segmentsRef.current]);
+      ws.onerror = () => {
+        console.error('Transcription WS error');
+        setIsTranscribing(false);
+      };
 
-      // Update full text
-      const newText = segmentsRef.current.map((s) => s.text).join(' ');
-      setFullText(newText);
-    };
+      ws.onclose = () => {
+        setIsTranscribing(false);
+      };
 
-    const onCompleted = (data) => {
-      console.log('[TRANSCRIPTION] Transcription completed:', data);
-      isRecordingRef.current = false; // Update ref immediately
-    };
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'result' && data.text) {
+            setTranscript((prev) => prev + data.text + ' ');
+            setPartialText('');
+          } else if (data.type === 'partial' && data.text) {
+            setPartialText(data.text);
+          }
+        } catch (err) {
+          console.error('Error parsing transcription message', err);
+        }
+      };
 
-    socketRef.current.on('transcription-segment', onSegment);
-    socketRef.current.on('transcription-completed', onCompleted);
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 16000,
+      });
+      audioContextRef.current = audioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
 
+      processor.onaudioprocess = (event) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        const float32 = event.inputBuffer.getChannelData(0);
+        const int16 = float32ToInt16(float32);
+        wsRef.current.send(int16.buffer);
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+    } catch (err) {
+      console.error('Failed to start transcription', err);
+      stopTranscription();
+    }
+  }, [isTeacher, isTranscribing, sessionId, stopTranscription]);
+
+  useEffect(() => {
     return () => {
-      socketRef.current?.off('transcription-segment', onSegment);
-      socketRef.current?.off('transcription-completed', onCompleted);
+      if (isTranscribing) {
+        stopTranscription();
+      }
     };
-  }, [socketRef]);
+  }, [isTranscribing, stopTranscription]);
 
   return {
-    segments,
-    fullText,
-    isRecording: isRecordingRef.current, // Return current ref value
-    isVisible,
-    error,
+    transcript,
+    partialText,
+    isTranscribing,
     startTranscription,
     stopTranscription,
-    toggleVisibility,
-    sendAudioChunk,
   };
 }
