@@ -11,8 +11,8 @@ import './PresenterTile.css';
  * When not sharing:
  * - Main video: local camera
  */
-function PresenterTile({ localStream, screenStream, presenterName }) {
-  const mainVideoRef = useRef(null);
+function PresenterTile({ localStream, screenStream, presenterName, videoRef }) {
+  const mainVideoRef = videoRef || useRef(null);
   const pipVideoRef = useRef(null);
 
   /**
